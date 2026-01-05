@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>RAG Chatbot - ChatPDF Style</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=3">
+    <!-- PDF.js for extracting PDF metadata -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Left Sidebar: PDF History -->
+        <div class="sidebar sidebar-left">
+            <div class="sidebar-header">
+                <h2>📚 Documents</h2>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-upload" id="uploadBtn" style="flex: 1;">
+                        <span>+ Upload PDF</span>
+                    </button>
+                    <button class="btn-upload" id="uploadDocstringBtn" style="flex: 1; background-color: #6366f1;" title="Upload dengan DocString API">
+                        <span>🤖 DocString</span>
+                    </button>
+                </div>
+                <input type="file" id="fileInput" accept=".pdf" style="display: none;">
+            </div>
+
+            <div class="sidebar-content">
+                <div id="sessionsList" class="sessions-list">
+                    <div class="empty-state">
+                        <p>No PDFs uploaded yet</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center: PDF Viewer -->
+        <div class="viewer-container">
+            <div class="viewer-header">
+                <h1 id="currentPdfName">Select a PDF</h1>
+                <div class="viewer-actions">
+                    <button id="deleteBtn" class="btn-icon btn-danger" title="Delete PDF">
+                        🗑️
+                    </button>
+                </div>
+            </div>
+
+            <div class="pdf-viewer" id="pdfViewer">
+                <div class="empty-state">
+                    <div class="icon">📄</div>
+                    <h3>No PDF selected</h3>
+                    <p>Upload a PDF to start chatting</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar: Chat Interface -->
+        <div class="sidebar sidebar-right">
+            <div class="chat-header">
+                <h2>💬 Chat</h2>
+                <span class="status-indicator" id="statusIndicator">ready</span>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="empty-state">
+                    <p>Select a PDF and start asking questions</p>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <input
+                    type="text"
+                    id="chatInput"
+                    class="chat-input"
+                    placeholder="Ask a question about the PDF..."
+                    disabled
+                >
+                <button id="sendBtn" class="btn-send" disabled>
+                    Send
+                </button>
+            </div>
+
+            <!-- Disclaimer Footer -->
+            <div class="disclaimer-footer">
+                <span class="disclaimer-text">⚠️ Jawaban bot mungkin mengandung kesalahan. </span>
+                <button class="disclaimer-link" id="disclaimerBtn">Pelajari lebih lanjut</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Upload PDF</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="fileInputModal" accept=".pdf" style="display: none;">
+                    <div class="upload-placeholder">
+                        <div class="upload-icon">📤</div>
+                        <p>Drag and drop PDF here</p>
+                        <p style="font-size: 12px; color: #666;">or click to browse</p>
+                    </div>
+                </div>
+                <div id="uploadProgress" style="display: none;">
+                    <!-- PDF Info Section -->
+                    <div id="uploadInfo" style="margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 8px; display: none;">
+                        <div style="margin-bottom: 8px;">
+                            <strong style="color: #333;">📄 Upload PDF:</strong>
+                            <p id="infoFileName" style="margin: 5px 0 0 0; color: #666; font-size: 13px;">-</p>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
+                            <div>
+                                <span style="color: #999;">Total Pages:</span>
+                                <p id="infoPages" style="margin: 3px 0; color: #333; font-weight: 500;">-</p>
+                            </div>
+                            <div>
+                                <span style="color: #999;">PDF Type:</span>
+                                <p id="infoPdfType" style="margin: 3px 0; color: #333; font-weight: 500;">-</p>
+                            </div>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 12px;">
+                            <span style="color: #999;">Estimasi Waktu:</span>
+                            <p id="infoEstimate" style="margin: 3px 0; color: #2196F3; font-weight: 500;">-</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <p id="uploadStatus">Uploading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+    </div>
+
+    <!-- Disclaimer Modal -->
+    <div id="disclaimerModal" class="modal">
+        <div class="modal-content modal-disclaimer">
+            <div class="modal-header">
+                <h2>⚠️ Pernyataan Penting</h2>
+                <button class="modal-close" onclick="document.getElementById('disclaimerModal').classList.remove('show')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="disclaimer-content">
+                    <h3>Batasan dan Ketidakakuratan Bot</h3>
+                    <p>
+                        Bot AI ini dirancang untuk membantu Anda dalam menganalisis dan mencari informasi dari dokumen PDF. 
+                        Namun, <strong>jawaban yang diberikan mungkin mengandung kesalahan, ketidakakuratan, atau interpretasi yang salah</strong>.
+                    </p>
+
+                    <h4>Alasan Potensi Kesalahan:</h4>
+                    <ul>
+                        <li><strong>Keterbatasan Model AI:</strong> Model bahasa memiliki keterbatasan dalam memahami konteks kompleks dan nuansa bahasa</li>
+                        <li><strong>Kualitas Dokumen:</strong> Dokumen yang buruk, tulisan tangan, atau tabel kompleks dapat menyebabkan ekstraksi yang tidak akurat</li>
+                        <li><strong>Ambiguitas:</strong> Pertanyaan yang ambigu atau konteks yang kurang jelas dapat menghasilkan interpretasi yang salah</li>
+                        <li><strong>Hallucination:</strong> Bot dapat menghasilkan informasi yang tidak ada dalam dokumen asli</li>
+                        <li><strong>Batasan Konteks:</strong> Bot mungkin tidak mempertimbangkan seluruh konteks dokumen</li>
+                    </ul>
+
+                    <h4>Rekomendasi:</h4>
+                    <p>
+                        <strong>Selalu lakukan verifikasi mandiri (DWYOR - Do With Your Own Research)</strong> dengan:
+                    </p>
+                    <ul>
+                        <li>✓ Membaca langsung bagian relevan dari dokumen asli</li>
+                        <li>✓ Membandingkan dengan sumber lain yang terpercaya</li>
+                        <li>✓ Berkonsultasi dengan ahli jika diperlukan untuk keputusan penting</li>
+                        <li>✓ Tidak mengandalkan 100% pada jawaban bot untuk hal-hal kritis</li>
+                    </ul>
+
+                    <h4>Tanggung Jawab Pengguna:</h4>
+                    <p>
+                        Pengguna <strong>sepenuhnya bertanggung jawab</strong> atas penggunaan informasi dari bot ini. 
+                        Jangan gunakan jawaban bot untuk keputusan hukum, medis, atau bisnis penting tanpa verifikasi lebih lanjut.
+                    </p>
+
+                    <p style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+                        <strong>Catatan:</strong> Bot ini adalah alat bantu untuk efisiensi. Gunakan dengan bijak dan selalu verifikasi informasi penting.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container (for loading status) -->
+    <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 10000;"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
